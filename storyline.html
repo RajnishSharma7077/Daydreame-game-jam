@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tarzan Runner Game</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; height: 100vh; overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #2c6e49, #14532d);
+  }
+  #parallaxContainer {
+    position: fixed;
+    inset: 0;
+    perspective: 800px;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .parallax-layer {
+    position: absolute;
+    width: 120%;
+    height: 120%;
+    top: -10%;
+    left: -10%;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    background-size: cover;
+    will-change: transform;
+  }
+  .layer-back {
+    background-image: url('https://i.imgur.com/6E8rWNj.png');
+    transform: translateZ(-300px) scale(1.5);
+    filter: brightness(0.7);
+    z-index: 1;
+  }
+  .layer-mid {
+    background-image: url('https://i.imgur.com/kWDytcQ.png');
+    transform: translateZ(-150px) scale(1.3);
+    filter: brightness(0.85);
+    z-index: 2;
+  }
+  .layer-front {
+    background-image: url('https://i.imgur.com/UZeP5hM.png');
+    transform: translateZ(0) scale(1);
+    z-index: 3;
+  }
+  .game-wrapper {
+    position: relative;
+    z-index: 10;
+    display: flex; flex-direction: column; align-items: center;
+    user-select: none;
+  }
+  .level-selection {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #7b0000;
+  }
+  .level-selection label {
+    margin-right: 20px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .buttons-container {
+    margin-bottom: 10px;
+  }
+  button {
+    background-color: #b71c1c;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    margin: 0 5px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 0 5px #7b0000;
+    transition: 0.3s;
+  }
+  button:hover:not(:disabled) {
+    background-color: #d32f2f;
+  }
+  button:disabled {
+    background-color: #7b7b7b;
+    cursor: not-allowed;
+  }
+  .healthbar-container {
+    width: 800px;
+    height: 20px;
+    border: 2px solid #b71c1c;
+    background: #333;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    box-shadow: 0 0 5px #b71c1c;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+  }
+  .healthbar-fill {
+    height: 100%;
+    background: #d32f2f;
+    width: 100%;
+    transition: width 0.5s ease;
+  }
+  #gameContainer {
+    position: relative;
+    width: 800px;
+    height: 450px;
+    border: 4px solid #b71c1c;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 0 15px 5px #b71c1c;
+    user-select: none;
+    z-index: 10;
+    border-radius: 10px;
+    transition: width 0.5s ease, height 0.5s ease;
+  }
+  #tarzan {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: url('TARZAN_IMAGE_URL') no-repeat center/contain;
+    border-radius: 6px;
+    box-shadow: 0 0 6px #1b5e20;
+    z-index: 30;
+  }
+  #obstacle, #obstacle2 {
+    position: absolute;
+    width: 40px;
+    height: 50px;
+    background: brown;
+    border-radius: 4px;
+    box-shadow: 0 0 8px #3e2723;
+    z-index: 20;
+  }
+  #obstacle2 {
+    background: #6b4226;
+  }
+  #healthPickup {
+    position: absolute;
+    width: 30px;
+    height: 27px;
+    background: none;
+    z-index: 35;
+    display: none;
+    cursor: pointer;
+  }
+  #healthPickup::before, #healthPickup::after {
+    content: "";
+    position: absolute;
+    width: 15px;
+    height: 24px;
+    background: #e53935;
+    border-radius: 12px 12px 0 0;
+    top: 0;
+    left: 7.5px;
+    transform: rotate(-45deg);
+    transform-origin: 0 100%;
+    box-shadow: 0 0 6px #b71c1c;
+  }
+  #healthPickup::after {
+    left: 0;
+    transform: rotate(45deg);
+    transform-origin: 100% 100%;
+  }
+  #gameOver {
+    color: #b71c1c;
+    margin-top: 20px;
+    font-size: 2.5em;
+    text-shadow: 1px 1px 0 #fff;
+    display: none;
+    user-select: none;
+    z-index: 40;
+  }
+  .sike-bg {
+    position: fixed;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    pointer-events: none;
+    font-size: 3rem;
+    font-weight: 900;
+    color: #fff;
+    text-align: center;
+    text-shadow: 2px 2px 4px #000;
+    max-width: 160px;
+    background: rgba(183, 28, 28, 0.85);
+    padding: 10px 15px;
+    border-radius: 8px;
+    user-select: none;
+  }
+  .sike-bg.show {
+    display: flex;
+    animation: sike-appear 700ms ease-out;
+  }
+  @keyframes sike-appear {
+    0% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    50% { opacity: 1; transform: translateY(0) scale(1.02); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+  <div id="parallaxContainer" aria-hidden="true">
+    <div class="parallax-layer layer-back"></div>
+    <div class="parallax-layer layer-mid"></div>
+    <div class="parallax-layer layer-front"></div>
+  </div>
+
+  <div id="sikeBg" class="sike-bg">SIKE! thats the wrong number</div>
+
+  <div class="game-wrapper" role="main" aria-label="Tarzan Runner Game">
+    <div class="level-selection" role="radiogroup" aria-label="Select difficulty level">
+      <label><input type="radio" name="level" value="0.4" checked> Level 1</label>
+      <label><input type="radio" name="level" value="0.6"> Level 2</label>
+      <label><input type="radio" name="level" value="0.75"> Level 3</label>
+      <label><input type="radio" name="level" value="1"> Level 4</label>
+    </div>
+    <div class="buttons-container">
+      <button id="startBtn">Start Game</button>
+      <button id="pauseBtn" disabled>Pause</button>
+      <button id="nextLevelBtn" disabled>Next Level (Sacrifice Ability)</button>
+      <button id="exitBtn">Exit Game</button>
+    </div>
+    <div class="healthbar-container">
+      <div class="healthbar-fill" id="healthbarFill"></div>
+      <button id="sacBtn" style="margin-left:10px;">Use Ability (Sacrifice Health)</button>
+      <span id="speedOverlay" style="display:none; color:#ffeb3b; font-weight:bold; margin-left:10px;">+SPEED</span>
+    </div>
+    <div id="gameContainer">
+      <div id="tarzan"></div>
+      <div id="obstacle"></div>
+      <div id="obstacle2" style="display:none;"></div>
+      <div id="healthPickup"></div>
+    </div>
+    <h2 id="gameOver">Game Over</h2>
+  </div>
+
+<script>
+  const gameContainer = document.getElementById('gameContainer');
+  const tarzan = document.getElementById('tarzan');
+  const obstacle = document.getElementById('obstacle');
+  const obstacle2 = document.getElementById('obstacle2');
+  const healthPickup = document.getElementById('healthPickup');
+  const gameOverText = document.getElementById('gameOver');
+  const healthbarFill = document.getElementById('healthbarFill');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const nextLevelBtn = document.getElementById('nextLevelBtn');
+  const exitBtn = document.getElementById('exitBtn');
+  const levelRadios = document.querySelectorAll('input[name="level"]');
+  const sikeBg = document.getElementById('sikeBg');
+  const sacBtn = document.getElementById('sacBtn');
+  const speedOverlay = document.getElementById('speedOverlay');
+
+  let containerWidth = 800;
+  let containerHeight = 450;
+
+  const tarzanSize = {width: 60, height: 60};
+  const obstacleSize = {width: 40, height: 50};
+  const pickupSize = {width: 30, height: 27};
+
+  let tarzanPos = {left: 50, bottom: 0};
+  let obstaclePos = {left: containerWidth - 50 - obstacleSize.width, bottom: containerHeight - 10 - obstacleSize.height};
+  let obstacle2Pos = {left: 0, bottom: containerHeight - 10 - obstacleSize.height};
+
+  let baseSpeed = 15;
+  let playerSpeed = baseSpeed;
+  let obstacleSpeed1 = playerSpeed / 2;
+  let obstacleSpeed2 = 0;
+
+  let isGameOver = false;
+  let keysPressed = {};
+  let health = 100;
+  let pickupActive = false;
+  let healthPickupPos = {left: 0, bottom: 0};
+  let gamePaused = true;
+  let animationFrameId = null;
+  let hitCooldown = false;
+  let gameExited = false;
+  let currentLevel = 1;
+
+  let abilitySacrificed = false;
+  let sacrificePercent = 0;
+
+  const HEART_COST = 20;
+  const HEART_DURATION = 5000;
+  const HEART_COOLDOWN = 15000;
+
+  let heartPowerActive = false;
+  let heartPowerExpiresAt = 0;
+  let heartPowerCooldown = false;
+
+  function showSike() {
+    sikeBg.classList.add('show');
+    setTimeout(() => { sikeBg.classList.remove('show'); }, 2000);
+  }
+
+  function moveObstacleSike() {
+    let minDist = 20;
+    let left = Math.random() * (containerWidth - obstacleSize.width);
+    let bottom = Math.random() * (containerHeight - obstacleSize.height);
+    if(left > tarzanPos.left - minDist && left < tarzanPos.left + tarzanSize.width + minDist) left += minDist;
+    if(bottom > tarzanPos.bottom - minDist && bottom < tarzanPos.bottom + tarzanSize.height + minDist) bottom += minDist;
+    obstaclePos.left = Math.min(left, containerWidth - obstacleSize.width);
+    obstaclePos.bottom = Math.min(bottom, containerHeight - obstacleSize.height);
+    updatePositions();
+    showSike();
+  }
+
+  function updateSpeeds(){
+    const checkedRadio = document.querySelector('input[name="level"]:checked');
+    if(checkedRadio){
+      currentLevel = parseInt(checkedRadio.parentElement.textContent.replace(/\D/g,'')) || 1;
+      let speedMultiplier = parseFloat(checkedRadio.value);
+      playerSpeed = baseSpeed * speedMultiplier;
+      let multiplier = 1 + (sacrificePercent / 100);
+      playerSpeed *= multiplier;
+
+      if(currentLevel === 4) {
+        obstacleSpeed1 = playerSpeed * 0.5;
+        obstacleSpeed2 = playerSpeed * 0.7;
+      } else {
+        obstacleSpeed1 = playerSpeed / 2;
+        obstacleSpeed2 = 0;
+      }
+    }
+  }
+  function updatePositions(){
+    tarzan.style.left = tarzanPos.left + 'px';
+    tarzan.style.bottom = tarzanPos.bottom + 'px';
+
+    obstacle.style.left = obstaclePos.left + 'px';
+    obstacle.style.bottom = obstaclePos.bottom + 'px';
+
+    if(currentLevel === 4){
+      obstacle2.style.display = 'block';
+      obstacle2.style.left = obstacle2Pos.left + 'px';
+      obstacle2.style.bottom = obstacle2Pos.bottom + 'px';
+    } else {
+      obstacle2.style.display = 'none';
+    }
+
+    healthbarFill.style.width = health + '%';
+    healthPickup.style.display = pickupActive ? 'block' : 'none';
+    if(pickupActive){
+      healthPickup.style.left = healthPickupPos.left + 'px';
+      healthPickup.style.bottom = healthPickupPos.bottom + 'px';
+    }
+  }
+  function keepInBounds(pos, size){
+    if(pos.left < 0) pos.left = 0;
+    if(pos.left > containerWidth - size.width) pos.left = containerWidth - size.width;
+    if(pos.bottom < 0) pos.bottom = 0;
+    if(pos.bottom > containerHeight - size.height) pos.bottom = containerHeight - size.height;
+  }
+  function moveTarzanByKeys(){
+    if(gamePaused || gameExited) return;
+    let moveX=0, moveY=0;
+    if(keysPressed['ArrowUp']) moveY += playerSpeed;
+    if(keysPressed['ArrowDown']) moveY -= playerSpeed;
+    if(keysPressed['ArrowLeft']) moveX -= playerSpeed;
+    if(keysPressed['ArrowRight']) moveX += playerSpeed;
+    tarzanPos.left += moveX;
+    tarzanPos.bottom += moveY;
+    keepInBounds(tarzanPos, tarzanSize);
+  }
+  function moveObstacleTowardTarzan(){
+    if(gamePaused || gameExited) return;
+
+    let dx1=tarzanPos.left-obstaclePos.left;
+    let dy1=tarzanPos.bottom-obstaclePos.bottom;
+    let dist1=Math.sqrt(dx1*dx1+dy1*dy1);
+    if(dist1>0){
+      obstaclePos.left += (dx1/dist1)*obstacleSpeed1;
+      obstaclePos.bottom += (dy1/dist1)*obstacleSpeed1;
+      keepInBounds(obstaclePos, obstacleSize);
+    }
+
+    if(currentLevel === 4){
+      let dx2=tarzanPos.left-obstacle2Pos.left;
+      let dy2=tarzanPos.bottom-obstacle2Pos.bottom;
+      let dist2=Math.sqrt(dx2*dx2+dy2*dy2);
+      if(dist2>0){
+        obstacle2Pos.left += (dx2/dist2)*obstacleSpeed2;
+        obstacle2Pos.bottom += (dy2/dist2)*obstacleSpeed2;
+        keepInBounds(obstacle2Pos, obstacleSize);
+      }
+    }
+  }
+  function detectCollisionA(posA,sizeA,posB,sizeB){
+    return !(posA.left+sizeA.width < posB.left || posA.left > posB.left+sizeB.width || posA.bottom+sizeA.height < posB.bottom || posA.bottom > posB.bottom+sizeB.height);
+  }
+  function onHit(){
+    if(gameExited) return;
+    health -= 10; if(health < 0) health = 0;
+    document.body.classList.add('grey-fade');
+    setTimeout(() => { if(!isGameOver && health > 0) document.body.classList.remove('grey-fade'); }, 1000);
+    if(health === 0) onGameOver();
+  }
+  function spawnHealthPickup(){
+    if(isGameOver || gamePaused || gameExited) return;
+    healthPickupPos.left = Math.random()*(containerWidth-pickupSize.width);
+    healthPickupPos.bottom = Math.random()*(containerHeight-pickupSize.height);
+    pickupActive = true;
+    updatePositions();
+  }
+  function checkPickupCollection(){
+    if(!pickupActive || gamePaused || gameExited) return;
+    if(detectCollisionA(tarzanPos,tarzanSize,healthPickupPos,pickupSize)){
+      health = Math.min(100,health+5);
+      pickupActive = false;
+      updatePositions();
+    }
+  }
+  sacBtn.addEventListener('click', () => {
+    if(gamePaused || heartPowerActive || heartPowerCooldown || health < HEART_COST || abilitySacrificed || gameExited) return;
+    health -= HEART_COST; updatePositions();
+    heartPowerActive = true;
+    playerSpeed *= 1.5;
+    speedOverlay.style.display = 'inline';
+    setTimeout(() => {
+      heartPowerActive = false; playerSpeed /= 1.5; speedOverlay.style.display = 'none';
+      heartPowerCooldown = true; setTimeout(() => {heartPowerCooldown = false;}, HEART_COOLDOWN);
+    }, HEART_DURATION);
+  });
+  function gameLoop(){
+    if(gamePaused || gameExited){ cancelAnimationFrame(animationFrameId); return; }
+    moveTarzanByKeys();
+    moveObstacleTowardTarzan();
+    updatePositions();
+
+    if(detectCollisionA(tarzanPos,tarzanSize,obstaclePos,obstacleSize) || (currentLevel===4 && detectCollisionA(tarzanPos,tarzanSize,obstacle2Pos,obstacleSize))){
+      if(!hitCooldown){
+        onHit();
+        hitCooldown=true;
+        setTimeout(() => {hitCooldown=false;}, 800);
+      }
+    }
+
+    checkPickupCollection();
+    animationFrameId=requestAnimationFrame(gameLoop);
+  }
+  setInterval(() => { if(!pickupActive && !isGameOver && !gamePaused && !gameExited && Math.random()<1/7){ spawnHealthPickup(); } }, 1000);
+  setInterval(() => { if(!gamePaused && !isGameOver && !gameExited){ moveObstacleSike(); } }, 15000);
+
+  document.addEventListener('keydown', e => { if(!gamePaused && !gameExited) keysPressed[e.code]=true; if(isGameOver && (e.code==='Space'||e.code==='Enter')) location.reload(); });
+  document.addEventListener('keyup', e => { if(!gamePaused && !gameExited) keysPressed[e.code]=false; });
+
+  startBtn.addEventListener('click', () => {
+    if(gameExited){
+      gameExited = false;
+      resetGameAll();
+      gamePaused = false;
+      updateSpeeds();
+      gameLoop();
+      return;
+    }
+    if(!isGameOver){
+      updateSpeeds();
+      gamePaused = false;
+      gameOverText.style.display='none';
+      startBtn.disabled=true;
+      pauseBtn.disabled=false;
+      nextLevelBtn.disabled=true;
+      sacBtn.disabled=abilitySacrificed;
+      exitBtn.disabled=false;
+      gameLoop();
+    }
+  });
+  pauseBtn.addEventListener('click', () => {
+    if(gameExited) return;
+    if(gamePaused){
+      updateSpeeds();
+      gamePaused=false;
+      pauseBtn.textContent='Pause';
+      gameLoop();
+    }
+    else{
+      gamePaused=true;
+      pauseBtn.textContent='Resume';
+    }
+  });
+  levelRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if(!gamePaused && !gameExited) updateSpeeds();
+    });
+  });
+  nextLevelBtn.addEventListener('click', () => {
+    if(abilitySacrificed){
+      alert('Ability already sacrificed! Ready for next level.');
+      return;
+    }
+    if(!isGameOver && !gameExited){
+      abilitySacrificed=true;
+      sacrificePercent += 7.7;
+      obstacleSpeed1 *= 1 + 0.077;
+      if(currentLevel===4) obstacleSpeed2 *= 1 + 0.077;
+      playerSpeed *= 1 + 0.077;
+      heartPowerCooldown=true;
+      alert(`Ability sacrificed! Difficulty increased by 7.7% for next level.`);
+      resetGameForNextLevel();
+    }
+  });
+  function resetGameForNextLevel(){
+    health=100;
+    if(currentLevel===4){
+      containerWidth=950; // increased width +150
+      containerHeight=600;
+    } else {
+      containerWidth=800;
+      containerHeight=450;
+    }
+    gameContainer.style.width = containerWidth + 'px';
+    gameContainer.style.height = containerHeight + 'px';
+
+    tarzanPos = {left: 50, bottom: 0};
+    obstaclePos = {left: containerWidth - 50 - obstacleSize.width, bottom: containerHeight - 10 - obstacleSize.height};
+    obstacle2Pos = {left: 0, bottom: containerHeight - 10 - obstacleSize.height};
+
+    pickupActive = false;
+    gamePaused = true;
+    isGameOver = false;
+    heartPowerActive = false;
+    speedOverlay.style.display='none';
+    gameOverText.style.display='none';
+    startBtn.disabled=false;
+    pauseBtn.disabled=true;
+    nextLevelBtn.disabled=true;
+    sacBtn.disabled=true;
+    exitBtn.disabled=false;
+    pauseBtn.textContent='Pause';
+    updateSpeeds();
+    updatePositions();
+  }
+  function onGameOver(){
+    isGameOver=true;
+    gamePaused=true;
+    gameOverText.style.display='block';
+    pauseBtn.disabled=true;
+    startBtn.disabled=true;
+    if(!abilitySacrificed) nextLevelBtn.disabled=false;
+    exitBtn.disabled=false;
+  }
+  exitBtn.addEventListener('click', () => {
+    gameExited=true;
+    gamePaused=true;
+    cancelAnimationFrame(animationFrameId);
+    gameOverText.textContent='Game Exited';
+    gameOverText.style.display='block';
+    startBtn.disabled=false;
+    pauseBtn.disabled=true;
+    nextLevelBtn.disabled=true;
+    sacBtn.disabled=true;
+    exitBtn.disabled=true;
+  });
+  function resetGameAll(){
+    health=100;
+    abilitySacrificed=false;
+    sacrificePercent=0;
+    heartPowerActive=false;
+    heartPowerCooldown=false;
+    gameOverText.textContent='';
+    gameExited=false;
+    gamePaused=false;
+    isGameOver=false;
+    containerWidth=800;
+    containerHeight=450;
+    gameContainer.style.width=containerWidth+'px';
+    gameContainer.style.height=containerHeight+'px';
+    tarzanPos={left:50,bottom:0};
+    obstaclePos={left:containerWidth-50-obstacleSize.width,bottom:containerHeight-10-obstacleSize.height};
+    obstacle2Pos={left:0,bottom:containerHeight-10-obstacleSize.height};
+    pickupActive=false;
+    sacBtn.disabled=false;
+    nextLevelBtn.disabled=true;
+    exitBtn.disabled=false;
+    pauseBtn.disabled=false;
+    startBtn.disabled=true;
+    keysPressed={};
+    updateSpeeds();
+    updatePositions();
+  }
+  updateSpeeds();
+  updatePositions();
+  startBtn.disabled=false;
+  pauseBtn.disabled=true;
+  nextLevelBtn.disabled=true;
+  sacBtn.disabled=false;
+  exitBtn.disabled=true;
+  const parallaxContainer=document.getElementById('parallaxContainer');
+  const layers=parallaxContainer.querySelectorAll('.parallax-layer');
+  document.body.addEventListener('mousemove', e => {
+    const centerX=window.innerWidth/2;
+    const centerY=window.innerHeight/2;
+    const offsetX=(e.clientX-centerX)/centerX;
+    const offsetY=(e.clientY-centerY)/centerY;
+    layers.forEach((layer, idx) => {
+      const depth=idx+1;
+      const moveX=offsetX*depth*10;
+      const moveY=offsetY*depth*10;
+      layer.style.transform=`translateX(${moveX}px) translateY(${moveY}px) translateZ(${-depth*150}px) scale(${1+depth*0.3})`;
+    });
+  });
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
